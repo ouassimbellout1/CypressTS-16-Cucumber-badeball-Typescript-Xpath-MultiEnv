@@ -1,25 +1,33 @@
 {
   "name": "cybdd",
   "version": "1.0.0",
-  "description": "Boilerplate for implementing BDD (cucumber) in cypress 13",
+  "description": "Boilerplate for implementing BDD (cucumber) in Cypress 15",
   "main": "cypress.config.ts",
   "scripts": {
-    "test": "cypress run"
+    "test": "cypress run",
+    "test:e2e:chrome": "cypress run --browser chrome",
+    "test:e2e:ci": "cypress run --browser chrome --headless",
+    "test:e2e:chrome:open": "cypress open --e2e --browser chrome",
+    "allure:clean": "node -e \"require('node:fs').rmSync('allure-results',{recursive:true,force:true}); require('node:fs').rmSync('allure-report',{recursive:true,force:true})\"",
+    "allure:generate": "allure generate allure-results --clean -o allure-report",
+    "allure:open": "allure open allure-report"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "@badeball/cypress-cucumber-preprocessor": "^16.0.3",
-    "@bahmutov/cypress-esbuild-preprocessor": "^2.2.0",
-    "@types/node": "^22.2.0",
-    "cypress": "^13.13.2",
+    "@badeball/cypress-cucumber-preprocessor": "^28.0.1",
+    "@bahmutov/cypress-esbuild-preprocessor": "^2.2.8",
+    "@types/node": "^22.20.5",
+    "allure": "^3.22.1",
+    "allure-cypress": "^3.14.0",
+    "cypress": "^16.2.1",
     "cypress-xpath": "^2.0.1",
-    "typescript": "^5.5.4",
+    "typescript": "^7.0.2",
     "xlsx": "^0.18.5"
   },
   "cypress-cucumber-preprocessor": {
-    "step_definitions": "cypress/support/step_definitions/",
+    "stepDefinitions": "cypress/e2e/step_definitions/**/*.{js,mjs,ts,tsx}",
     "nonGlobalStepDefinitions": false
   }
 }

@@ -1,4 +1,29 @@
-# Implement Cucumber in Cypress 
+# Implement Cucumber in Cypress
+
+## Current setup
+
+This project uses:
+
+- Cypress `16.2.1`
+- TypeScript `7.0.2`
+- `@badeball/cypress-cucumber-preprocessor` `28.0.1`
+- `@bahmutov/cypress-esbuild-preprocessor` `2.2.8`
+
+Feature files are stored in `cypress/e2e/features`, page objects in
+`cypress/e2e/pages`, and step definitions in
+`cypress/e2e/step_definitions`.
+
+The public application URLs are configured through the `expose` block in
+`cypress.config.ts` and are read with `Cypress.expose()`. They are public
+configuration values, not secrets, so they must not be read with `cy.env()`.
+Sensitive values such as credentials, tokens, and API keys must use
+`cy.env()` instead.
+
+`allowCypressEnv: false` is intentionally not enabled yet because the
+Cucumber preprocessor still uses `Cypress.env()` internally for its test
+metadata. The application code contains no `Cypress.env()` usage. This
+option can be enabled after upgrading to a preprocessor version that removes
+that internal dependency.
 ## By **Wassim** | [LinkedIn](https://www.linkedin.com/in/mohammad-monfared) | [YouTube](https://www.youtube.com/automationcamp) | [Website](http://www.monfared.io/)
 
 ---
@@ -50,7 +75,7 @@ npm install @bahmutov/cypress-esbuild-preprocessor --save-dev  // Bundle Cypress
 ```
 ## 3. Update cypress configs
 
-`cypress.config.js`
+`cypress.config.ts`
 
 ```javascript
 const { defineConfig } = require("cypress");
@@ -68,7 +93,7 @@ module.exports = defineConfig({
       preprocessor.addCucumberPreprocessorPlugin(on, config);
       return config;
     },
-	specPattern: "**/*.feature",
+    specPattern: "./cypress/e2e/**/*.feature",
   },
 })
 
@@ -79,7 +104,7 @@ module.exports = defineConfig({
 
 ```javascript
 "cypress-cucumber-preprocessor": {
-    "step_definitions": "cypress/support/step_definitions/",
+    "stepDefinitions": "cypress/e2e/step_definitions/**/*.{js,mjs,ts,tsx}",
     "nonGlobalStepDefinitions": false
   }
 ```
@@ -89,7 +114,7 @@ This is one of the bests for VS-Code: [Cucumber (Gherkin) Full Support](https://
 
 ## 6 .Add feature files
 
-`e2e/Login.feature`
+`cypress/e2e/features/Login.feature`
 
 ```gherkin
 Feature: Login features
@@ -106,7 +131,7 @@ Feature: Login features
     Then I should see invalid credentials message
 ```
 
-`e2e/Users.feature`
+`cypress/e2e/features/Users.feature`
 
 ```gherkin
 Feature: Users filter
@@ -125,7 +150,7 @@ Feature: Users filter
 
 ## 7. Add Step Definitions
 
-`cypress/support/step_definitions/steps.js`
+`cypress/e2e/step_definitions/steps.step.ts`
 
 ```javascript
 import { Given, When, Then, DataTable } from '@badeball/cypress-cucumber-preprocessor'
@@ -135,7 +160,7 @@ Given('I am in login page', () => {
   })
 
 When ('I enter valid username and password', () => {
-  cy.fixture('users.json').then((users) => {
+  cy.fixture('json/orangehrm.login.json').then((users) => {
     cy.get('input[name=username]').type(users.valid.username)
     cy.get('input[name=password]').type(users.valid.password)
   })
@@ -150,7 +175,7 @@ Then('I should logged in and redirected to dashboard page', () => {
 })
 
 When ('I enter invalid username and password', () => {
-  cy.fixtures('users.json').then((users) => {
+  cy.fixture('json/orangehrm.login.json').then((users) => {
     cy.get('input[name=username]').type(users.invalid.username)
     cy.get('input[name=password]').type(users.invalid.password)
   })

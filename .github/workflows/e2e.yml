@@ -1,0 +1,56 @@
+name: E2E tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  cypress:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Clean Allure results
+        run: npm run allure:clean
+
+      - name: Run Cypress tests
+        id: cypress
+        continue-on-error: true
+        run: npm run test:e2e:ci
+
+      - name: Generate Allure report
+        if: always()
+        run: npm run allure:generate
+
+      - name: Upload Allure report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-report
+          path: allure-report
+          if-no-files-found: error
+
+      - name: Upload Cypress artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cypress-artifacts
+          path: |
+            cypress/screenshots
+            cypress/videos
+          if-no-files-found: ignore
+
+      - name: Fail workflow when tests fail
+        if: steps.cypress.outcome == 'failure'
+        run: exit 1

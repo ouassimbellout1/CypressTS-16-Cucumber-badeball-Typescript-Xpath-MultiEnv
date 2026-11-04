@@ -1,6 +1,6 @@
 class GoogleSearch {
 
-    say(somethingToSay: String): void {
+    say(somethingToSay: string): void {
         console.log("HELLO", somethingToSay)
     }
     

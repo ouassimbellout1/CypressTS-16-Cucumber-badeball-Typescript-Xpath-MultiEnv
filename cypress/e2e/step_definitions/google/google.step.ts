@@ -2,7 +2,7 @@
 /// <reference types="cypress-xpath" />
 
 import { Given, When, Then } from '@badeball/cypress-cucumber-preprocessor';
-import GoogleSearch  from "../../pages/google/page-googleSearch.cy";
+import GoogleSearch  from "../../pages/google/page-googleSearch.page";
 
 //***************************************************************************************** */
 // When :

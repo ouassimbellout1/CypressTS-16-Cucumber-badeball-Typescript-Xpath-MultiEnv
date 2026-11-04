@@ -2,34 +2,26 @@ const { defineConfig } = require("cypress");
 const createBundler = require("@bahmutov/cypress-esbuild-preprocessor");
 const preprocessor = require("@badeball/cypress-cucumber-preprocessor");
 const createEsbuildPlugin = require("@badeball/cypress-cucumber-preprocessor/esbuild");
-const xlsx = require('xlsx');
+const { allureCypress } = require("allure-cypress/reporter");
 
 module.exports = defineConfig({
-  env: {
-    local   : 'https://www.google.com/',
-    google     : 'https://www.google.com/',
-    redux   : `https://react-redux.realworld.io/`
+  expose: {
+    local: 'https://www.google.com/',
+    google: 'https://www.google.com/',
+    orangehrm: 'https://opensource-demo.orangehrmlive.com/web/index.php/auth/login'
   },
   e2e: {
-    setupNodeEvents(on, config) {
+    setupNodeEvents(on: Cypress.PluginEvents, config: Cypress.PluginConfigOptions): Cypress.PluginConfigOptions {
       on("file:preprocessor",
       createBundler({
         plugins: [createEsbuildPlugin.default(config)],
       }));
-      on("task", {
-        generateJSONFromExcel: generateJSONFromExcel,
-      });
       preprocessor.addCucumberPreprocessorPlugin(on, config);
+      allureCypress(on, config, {
+        resultsDir: "allure-results",
+      });
       return config;
     },
 	specPattern: "./cypress/e2e/**/*.feature",
   },
 });
-
-// Excel To JSON
-function generateJSONFromExcel(agrs) {
-  const wb   = xlsx.readFile(agrs.excelFilePath, { dateNF: "mm/dd/yyyy" });
-  const ws   = wb.Sheets[agrs.sheetName];
-  const read = xlsx.utils.sheet_to_json(ws, { raw: false });
-  return read;
-}
