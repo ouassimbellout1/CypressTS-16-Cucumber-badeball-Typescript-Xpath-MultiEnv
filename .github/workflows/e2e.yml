@@ -108,11 +108,6 @@ jobs:
       id-token: write
 
     steps:
-      - name: Configure GitHub Pages
-        uses: actions/configure-pages@v5
-        with:
-          enablement: true
-
       - name: Deploy report to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
