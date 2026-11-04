@@ -24,6 +24,17 @@ Cucumber preprocessor still uses `Cypress.env()` internally for its test
 metadata. The application code contains no `Cypress.env()` usage. This
 option can be enabled after upgrading to a preprocessor version that removes
 that internal dependency.
+
+## GitHub Pages report
+
+The GitHub Actions workflow generates the Allure HTML report and publishes it to
+GitHub Pages after a push to the repository's default branch. The report URL is
+displayed in the workflow summary.
+
+In the repository settings, configure **Pages > Build and deployment > Source**
+as **GitHub Actions**. Pull requests still generate an Allure artifact, but do
+not deploy a Pages site.
+
 ## By **Wassim** | [LinkedIn](https://www.linkedin.com/in/mohammad-monfared) | [YouTube](https://www.youtube.com/automationcamp) | [Website](http://www.monfared.io/)
 
 ---
