@@ -35,7 +35,7 @@ In the repository settings, configure **Pages > Build and deployment > Source**
 as **GitHub Actions**. Pull requests still generate an Allure artifact, but do
 not deploy a Pages site.
 
-## By **Wassim** | [LinkedIn](https://www.linkedin.com/in/mohammad-monfared) | [YouTube](https://www.youtube.com/automationcamp) | [Website](http://www.monfared.io/)
+## By **Wassim** | [LinkedIn](https://www.linkedin.com/in/ouassim-bellout/)
 
 ---
 
