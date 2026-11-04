@@ -116,7 +116,8 @@ jobs:
         uses: actions/deploy-pages@v4
 
       - name: Publish report URL
-        run: echo "Allure report: ${{ steps.deployment.outputs.page_url }}" >> "$GITHUB_STEP_SUMMARY"
+        run: |
+          echo "Allure report: ${{ steps.deployment.outputs.page_url }}" >> "$GITHUB_STEP_SUMMARY"
 
   quality-gate:
     name: Validate E2E result
