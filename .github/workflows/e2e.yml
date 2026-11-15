@@ -21,18 +21,14 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Clean Allure results
-        run: npm run allure:clean
-
       - name: Run Cypress tests
         id: cypress
-        continue-on-error: true
         run: npm run test:e2e:ci
 
       - name: Upload Allure results
@@ -66,7 +62,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
 
       - name: Install dependencies

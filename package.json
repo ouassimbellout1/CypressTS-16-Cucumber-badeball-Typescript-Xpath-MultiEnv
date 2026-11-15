@@ -4,12 +4,12 @@
   "description": "Boilerplate for implementing BDD (cucumber) in Cypress 15",
   "main": "cypress.config.ts",
   "scripts": {
-    "test": "cypress run",
-    "test:e2e:chrome": "cypress run --browser chrome",
-    "test:e2e:ci": "cypress run --browser chrome --headless",
-    "test:e2e:chrome:open": "cypress open --e2e --browser chrome",
+    "test": "node cypress/support/run-e2e-and-generate-reports.ts",
+    "test:e2e:chrome": "node cypress/support/run-e2e-and-generate-reports.ts --browser chrome",
+    "test:e2e:ci": "node cypress/support/run-e2e-and-generate-reports.ts --browser chrome --headless",
+    "test:e2e:chrome:open": "node cypress/support/run-e2e-and-generate-reports.ts --open --e2e --browser chrome",
     "allure:clean": "node -e \"require('node:fs').rmSync('allure-results',{recursive:true,force:true}); require('node:fs').rmSync('allure-report',{recursive:true,force:true})\"",
-    "allure:generate": "allure generate allure-results --clean -o allure-report",
+    "allure:generate": "node cypress/support/run-e2e-and-generate-reports.ts --generate-only",
     "allure:open": "allure open allure-report"
   },
   "keywords": [],
