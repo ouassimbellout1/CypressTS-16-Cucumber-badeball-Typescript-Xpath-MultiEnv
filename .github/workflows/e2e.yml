@@ -3,81 +3,150 @@ name: E2E tests
 on:
   push:
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
+
+concurrency:
+  group: e2e-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   e2e:
-    name: Run Cypress tests
+    name: Cypress (${{ matrix.browser }})
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - browser: chrome
+            command: npm run test:e2e:chrome -- --headless
+            fallback: npx cypress run --browser electron --headless
+          - browser: electron
+            command: npx cypress run --browser electron --headless
+            fallback: ""
+
+    permissions:
+      contents: read
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v5
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v5
         with:
           node-version: 24
           cache: npm
 
-      - name: Install dependencies
+      - name: Install project dependencies
         run: npm ci
 
-      - name: Run Cypress tests
-        id: cypress
-        run: npm run test:e2e:ci
+      - name: Install Cypress binary
+        run: npx cypress install --force
+
+      - name: Decide browser runtime
+        id: browser-choice
+        shell: bash
+        run: |
+          set -e
+          if [ "${{ matrix.browser }}" = "chrome" ]; then
+            if npx cypress info --browser chrome > /tmp/cypress-chrome-check.txt 2>&1; then
+              echo "selected=chrome" >> "$GITHUB_OUTPUT"
+            else
+              echo "selected=fallback" >> "$GITHUB_OUTPUT"
+              echo "::warning::Chrome not available on the runner. Falling back to Electron."
+            fi
+          else
+            echo "selected=electron" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run Cypress E2E suite
+        shell: bash
+        run: |
+          set -o pipefail
+          if [ "${{ matrix.browser }}" = "chrome" ] && [ "${{ steps.browser-choice.outputs.selected }}" = "chrome" ]; then
+            echo "Running Cypress with Chrome"
+            ${{ matrix.command }}
+          elif [ "${{ matrix.browser }}" = "chrome" ] && [ "${{ steps.browser-choice.outputs.selected }}" = "fallback" ]; then
+            echo "Running Cypress with Electron fallback"
+            ${{ matrix.fallback }}
+          else
+            echo "Running Cypress with Electron"
+            ${{ matrix.command }}
+          fi
 
       - name: Upload Allure results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: allure-results
+          name: allure-results-${{ matrix.browser }}
           path: allure-results
           if-no-files-found: error
 
-      - name: Upload Cypress artifacts
+      - name: Upload Cypress screenshots and videos
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: cypress-artifacts
+          name: cypress-artifacts-${{ matrix.browser }}
           path: |
             cypress/screenshots
             cypress/videos
           if-no-files-found: ignore
 
+      - name: Write failure summary for debugging
+        if: failure()
+        shell: bash
+        run: |
+          {
+            echo "## Cypress failure summary"
+            echo "- Browser: ${{ matrix.browser }}"
+            echo "- Ref: ${{ github.ref_name }}"
+            echo "- Commit: ${{ github.sha }}"
+            echo "- Runner: ${{ runner.os }}"
+            echo "- Artifacts uploaded: allure-results-${{ matrix.browser }}, cypress-artifacts-${{ matrix.browser }}"
+            echo ""
+            echo "### Available diagnostics"
+            if [ -d "cypress/screenshots" ]; then echo "- Screenshots directory present"; fi
+            if [ -d "cypress/videos" ]; then echo "- Videos directory present"; fi
+            if [ -f "allure-results/allure-e2e-report.json" ]; then echo "- Allure summary file present"; fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
   report:
     name: Generate Allure report
     needs: e2e
     if: always()
+    timeout-minutes: 15
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v5
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v5
         with:
           node-version: 24
           cache: npm
 
-      - name: Install dependencies
+      - name: Install project dependencies
         run: npm ci
 
-      - name: Download Allure results
+      - name: Download Allure results from all matrix runs
         uses: actions/download-artifact@v4
         with:
-          name: allure-results
+          pattern: allure-results-*
           path: allure-results
+          merge-multiple: true
 
-      - name: Generate Allure report
+      - name: Generate HTML report
         run: npm run allure:generate
 
-      - name: Upload Allure report
+      - name: Upload HTML report artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -85,16 +154,29 @@ jobs:
           path: allure-report
           if-no-files-found: error
 
-      - name: Upload report for GitHub Pages
+      - name: Upload for GitHub Pages
         if: github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v4
         with:
           path: allure-report
 
+      - name: Publish summary of report generation
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## Allure report status"
+            echo "- Job: ${{ github.job }}"
+            echo "- Ref: ${{ github.ref_name }}"
+            echo "- Report artifact: allure-report"
+            echo "- Pages deployment: ${{ github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
   deploy-report:
-    name: Deploy Allure report to GitHub Pages
+    name: Deploy GitHub Pages report
     needs: report
     if: github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    timeout-minutes: 10
     runs-on: ubuntu-latest
     environment:
       name: github-pages
@@ -108,21 +190,32 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
 
-      - name: Publish report URL
+      - name: Publish deployment URL
         run: |
           echo "Allure report: ${{ steps.deployment.outputs.page_url }}" >> "$GITHUB_STEP_SUMMARY"
 
   quality-gate:
-    name: Validate E2E result
+    name: Quality gate
     needs: e2e
     if: always()
+    timeout-minutes: 10
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     steps:
-      - name: Fail workflow when tests fail
-        if: needs.e2e.result == 'failure'
+      - name: Fail workflow if any matrix run failed
+        if: contains(needs.e2e.result, 'failure')
         run: exit 1
 
-      - name: Confirm successful tests
+      - name: Write final success summary
         if: needs.e2e.result == 'success'
-        run: echo "All E2E tests passed."
+        shell: bash
+        run: |
+          {
+            echo "## ✅ E2E matrix passed"
+            echo "- All Cypress browser variants completed successfully."
+            echo "- Workflow: ${{ github.workflow }}"
+            echo "- Ref: ${{ github.ref_name }}"
+            echo "- SHA: ${{ github.sha }}"
+          } >> "$GITHUB_STEP_SUMMARY"
