@@ -8,7 +8,8 @@ module.exports = defineConfig({
   expose: {
     local: 'https://www.google.com/',
     google: 'https://www.google.com/',
-    orangehrm: 'https://opensource-demo.orangehrmlive.com/web/index.php/auth/login'
+    orangehrm: 'https://opensource-demo.orangehrmlive.com/web/index.php/auth/login',
+    expandtesting: 'https://practice.expandtesting.com/login'
   },
   e2e: {
     setupNodeEvents(on: Cypress.PluginEvents, config: Cypress.PluginConfigOptions): Cypress.PluginConfigOptions {

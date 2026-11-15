@@ -19,6 +19,10 @@ configuration values, not secrets, so they must not be read with `cy.env()`.
 Sensitive values such as credentials, tokens, and API keys must use
 `cy.env()` instead.
 
+The ExpandTesting login feature in
+`cypress/e2e/features/expandtesting/login.feature` covers successful login and
+invalid username/password cases using the site's public practice credentials.
+
 `allowCypressEnv: false` is intentionally not enabled yet because the
 Cucumber preprocessor still uses `Cypress.env()` internally for its test
 metadata. The application code contains no `Cypress.env()` usage. This
