@@ -39,11 +39,13 @@ In the repository settings, configure **Pages > Build and deployment > Source**
 as **GitHub Actions**. Pull requests still generate an Allure artifact, but do
 not deploy a Pages site.
 
-Running `npm test` clears `allure-results`, runs Cypress, and writes a test
-summary to `allure-results/allure-e2e-report.json`. It also generates a
-JUnit-compatible XML report at `allure-results/allure-e2e-report.xml` and the
-standard multi-file Allure report in `allure-report`, directly from the raw
-results. Open the report with `npm run allure:open`.
+Running `npm test` clears the result folders, runs Cypress, and generates the
+Allure HTML report from raw files stored in `allure-results-raw`. The
+`allure-results` folder contains only the JSON summary and JUnit XML report.
+The raw folder is removed after report generation; CI uploads it before cleanup.
+The Allure hierarchy is normalized to `Cypress/e2e/features/<feature>.feature`.
+In test details, only **Test body** is open by default; **Set up** and
+**Tear down** remain collapsed. Open the report with `npm run allure:open`.
 
 ## By **Wassim** | [LinkedIn](https://www.linkedin.com/in/ouassim-bellout/)
 

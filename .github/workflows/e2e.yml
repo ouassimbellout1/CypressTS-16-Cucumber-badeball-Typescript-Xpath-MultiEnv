@@ -93,15 +93,19 @@ jobs:
           echo "browser_path=$BROWSER_PATH" >> "$GITHUB_OUTPUT"
 
       - name: Run Cypress E2E suite
-        run: node cypress/support/run-e2e-and-generate-reports.ts --browser "${{ steps.browser-choice.outputs.browser_path }}" --headless
+        run: npm run test:e2e:ci -- --browser "${{ steps.browser-choice.outputs.browser_path }}" --preserve-raw
 
       - name: Upload Allure results
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: allure-results-${{ matrix.browser }}
-          path: allure-results
+          path: allure-results-raw
           if-no-files-found: warn
+
+      - name: Remove raw Allure results after upload
+        if: always()
+        run: rm -rf allure-results-raw
 
       - name: Upload Cypress screenshots and videos
         if: always()
@@ -157,20 +161,20 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           pattern: allure-results-*
-          path: allure-results
+          path: allure-results-raw
           merge-multiple: true
 
       - name: Check downloaded results
         shell: bash
         run: |
-          if [ ! -d "allure-results" ] || [ -z "$(find allure-results -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null)" ]; then
+          if [ ! -d "allure-results-raw" ] || ! find allure-results-raw -type f -name '*-result.json' -print -quit | grep -q .; then
             echo "::warning::No Allure result files were downloaded from the matrix jobs. Skipping HTML generation."
             mkdir -p allure-report
             echo "No Allure results available for this run." > allure-report/NO_RESULTS.txt
           fi
 
       - name: Generate HTML report
-        if: ${{ hashFiles('allure-results/**') != '' }}
+        if: ${{ hashFiles('allure-results-raw/**') != '' }}
         run: npm run allure:generate
 
       - name: Upload HTML report artifact
