@@ -72,8 +72,13 @@ jobs:
             exit 1
           fi
 
+          if ! command -v dbus-run-session >/dev/null 2>&1; then
+            echo "::error::dbus-run-session is not available on this GitHub-hosted runner."
+            exit 1
+          fi
+
           echo "Using browser executable: $BROWSER_PATH"
-          if ! timeout 30s "$BROWSER_PATH" \
+          if ! timeout 45s dbus-run-session -- "$BROWSER_PATH" \
             --headless \
             --no-sandbox \
             --disable-gpu \
@@ -93,7 +98,7 @@ jobs:
           echo "browser_path=$BROWSER_PATH" >> "$GITHUB_OUTPUT"
 
       - name: Run Cypress E2E suite
-        run: npm run test:e2e:ci -- --browser "${{ steps.browser-choice.outputs.browser_path }}" --preserve-raw
+        run: dbus-run-session -- npm run test:e2e:ci -- --browser "${{ steps.browser-choice.outputs.browser_path }}" --preserve-raw
 
       - name: Upload Allure results
         if: always()
