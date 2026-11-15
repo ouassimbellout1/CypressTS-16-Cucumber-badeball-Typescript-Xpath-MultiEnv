@@ -97,7 +97,7 @@ jobs:
 
       - name: Upload Allure results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: allure-results-${{ matrix.browser }}
           path: allure-results
@@ -105,7 +105,7 @@ jobs:
 
       - name: Upload Cypress screenshots and videos
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: cypress-artifacts-${{ matrix.browser }}
           path: |
@@ -154,7 +154,7 @@ jobs:
         run: npm ci
 
       - name: Download Allure results from all matrix runs
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: allure-results-*
           path: allure-results
@@ -175,7 +175,7 @@ jobs:
 
       - name: Upload HTML report artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: allure-report
           path: allure-report
@@ -183,7 +183,7 @@ jobs:
 
       - name: Upload for GitHub Pages
         if: always() && github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && hashFiles('allure-report/**') != ''
-        uses: actions/upload-pages-artifact@v4
+        uses: actions/upload-pages-artifact@v5
         with:
           path: allure-report
 
@@ -215,7 +215,7 @@ jobs:
     steps:
       - name: Deploy report to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
 
       - name: Publish deployment URL
         run: |
