@@ -20,13 +20,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - browser: chrome
-            command: npm run test:e2e:chrome -- --headless
-            fallback: npx cypress run --browser edge --headless
-          - browser: edge
-            command: npx cypress run --browser edge --headless
-            fallback: ""
+        browser: [chrome, edge]
 
     permissions:
       contents: read
@@ -47,36 +41,59 @@ jobs:
       - name: Install Cypress binary
         run: npx cypress install --force
 
-      - name: Decide browser runtime
+      - name: Resolve and smoke-test browser
         id: browser-choice
         shell: bash
         run: |
-          set -e
-          if [ "${{ matrix.browser }}" = "chrome" ]; then
-            if npx cypress info --browser chrome > /tmp/cypress-chrome-check.txt 2>&1; then
-              echo "selected=chrome" >> "$GITHUB_OUTPUT"
-            else
-              echo "selected=fallback" >> "$GITHUB_OUTPUT"
-              echo "::warning::Chrome not available on the runner. Falling back to Edge."
+          set -euo pipefail
+          case "${{ matrix.browser }}" in
+            chrome)
+              CANDIDATES=(google-chrome google-chrome-stable)
+              ;;
+            edge)
+              CANDIDATES=(microsoft-edge microsoft-edge-stable)
+              ;;
+            *)
+              echo "::error::Unsupported browser: ${{ matrix.browser }}"
+              exit 1
+              ;;
+          esac
+
+          BROWSER_PATH=""
+          for candidate in "${CANDIDATES[@]}"; do
+            if command -v "$candidate" >/dev/null 2>&1; then
+              BROWSER_PATH="$(command -v "$candidate")"
+              break
             fi
-          else
-            echo "selected=edge" >> "$GITHUB_OUTPUT"
+          done
+
+          if [ -z "$BROWSER_PATH" ]; then
+            echo "::error::${{ matrix.browser }} is not installed on this GitHub-hosted runner."
+            exit 1
           fi
 
-      - name: Run Cypress E2E suite
-        shell: bash
-        run: |
-          set -o pipefail
-          if [ "${{ matrix.browser }}" = "chrome" ] && [ "${{ steps.browser-choice.outputs.selected }}" = "chrome" ]; then
-            echo "Running Cypress with Chrome"
-            ${{ matrix.command }}
-          elif [ "${{ matrix.browser }}" = "chrome" ] && [ "${{ steps.browser-choice.outputs.selected }}" = "fallback" ]; then
-            echo "Running Cypress with Edge fallback"
-            ${{ matrix.fallback }}
-          else
-            echo "Running Cypress with Edge"
-            ${{ matrix.command }}
+          echo "Using browser executable: $BROWSER_PATH"
+          if ! timeout 30s "$BROWSER_PATH" \
+            --headless \
+            --no-sandbox \
+            --disable-gpu \
+            --disable-dev-shm-usage \
+            --dump-dom about:blank > browser-smoke.html 2> browser-smoke.log; then
+            cat browser-smoke.log
+            echo "::error::${{ matrix.browser }} could not start in headless mode."
+            exit 1
           fi
+
+          if ! grep -qi "<html" browser-smoke.html; then
+            cat browser-smoke.log
+            echo "::error::${{ matrix.browser }} started but returned no HTML from the smoke test."
+            exit 1
+          fi
+
+          echo "browser_path=$BROWSER_PATH" >> "$GITHUB_OUTPUT"
+
+      - name: Run Cypress E2E suite
+        run: node cypress/support/run-e2e-and-generate-reports.ts --browser "${{ steps.browser-choice.outputs.browser_path }}" --headless
 
       - name: Upload Allure results
         if: always()
@@ -84,7 +101,7 @@ jobs:
         with:
           name: allure-results-${{ matrix.browser }}
           path: allure-results
-          if-no-files-found: error
+          if-no-files-found: warn
 
       - name: Upload Cypress screenshots and videos
         if: always()

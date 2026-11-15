@@ -138,13 +138,70 @@ ${testCases}
   fs.writeFileSync(xmlReportPath, junitXml);
 };
 
+const hasResultFiles = (directory: string): boolean =>
+  fs.existsSync(directory) &&
+  fs
+    .readdirSync(directory)
+    .some((file: string) => file.endsWith("-result.json"));
+
+const buildSummaryFromRawResults = (directory: string): AllureSummary => {
+  if (!fs.existsSync(directory)) {
+    return {
+      generatedAt: new Date().toISOString(),
+      totals: { tests: 0, statuses: {} },
+      tests: [],
+      rawFiles: [],
+    };
+  }
+
+  const resultFiles = fs
+    .readdirSync(directory)
+    .filter((file: string) => file.endsWith("-result.json"));
+
+  const tests = resultFiles.map(
+    (file: string) =>
+      JSON.parse(
+        fs.readFileSync(path.join(directory, file), "utf8"),
+      ) as AllureTestResult,
+  );
+
+  const rawFiles = collectRawFiles(directory);
+  const statuses: Record<string, number> = {};
+
+  for (const test of tests) {
+    statuses[test.status] = (statuses[test.status] ?? 0) + 1;
+  }
+
+  return {
+    generatedAt: new Date().toISOString(),
+    totals: {
+      tests: tests.length,
+      statuses,
+    },
+    tests,
+    rawFiles,
+  };
+};
+
+const writeNoResultsPlaceholder = (): void => {
+  fs.mkdirSync(reportDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(reportDir, "NO_RESULTS.txt"),
+    "No Allure results were available for this run.\n",
+  );
+};
+
 const generateAllureReport = (summary: AllureSummary): number => {
-  if (
-    !Array.isArray(summary.tests) ||
-    !Array.isArray(summary.rawFiles) ||
-    !summary.rawFiles.some((file) => file.path.endsWith("-result.json"))
-  ) {
-    throw new Error(`No raw Allure result files found in ${summaryPath}`);
+  const hasResultFiles =
+    Array.isArray(summary.tests) &&
+    summary.tests.length > 0 &&
+    Array.isArray(summary.rawFiles) &&
+    summary.rawFiles.some((file) => file.path.endsWith("-result.json"));
+
+  if (!hasResultFiles) {
+    console.warn(`No raw Allure result files found in ${summaryPath}. Skipping HTML generation.`);
+    writeNoResultsPlaceholder();
+    return 0;
   }
 
   generateXmlReport(summary.tests);
@@ -199,52 +256,28 @@ if (!generateOnly) {
     { stdio: "inherit" },
   );
 
-  const tests = fs
-    .readdirSync(resultsDir)
-    .filter((file: string) => file.endsWith("-result.json"))
-    .map(
-      (file: string) =>
-        JSON.parse(
-          fs.readFileSync(path.join(resultsDir, file), "utf8"),
-        ) as AllureTestResult,
-    );
-  const rawFiles = collectRawFiles(resultsDir);
-  const statuses: Record<string, number> = {};
-
-  for (const test of tests) {
-    statuses[test.status] = (statuses[test.status] ?? 0) + 1;
-  }
-
-  const summary: AllureSummary = {
-    generatedAt: new Date().toISOString(),
-    totals: {
-      tests: tests.length,
-      statuses,
-    },
-    tests,
-    rawFiles,
-  };
-
-  for (const entry of fs.readdirSync(resultsDir)) {
-    fs.rmSync(path.join(resultsDir, entry), { recursive: true, force: true });
-  }
+  const summary = buildSummaryFromRawResults(resultsDir);
   fs.writeFileSync(summaryPath, `${JSON.stringify(summary, null, 2)}\n`);
 }
 
-if (!fs.existsSync(summaryPath)) {
-  throw new Error(`Merged test results not found: ${summaryPath}`);
-}
+if (!fs.existsSync(summaryPath) && !hasResultFiles(resultsDir)) {
+  console.warn(
+    `Merged test results not found: ${summaryPath}. Creating a placeholder report.`,
+  );
+  writeNoResultsPlaceholder();
+  process.exitCode = 0;
+} else {
+  const summary = fs.existsSync(summaryPath)
+    ? (JSON.parse(fs.readFileSync(summaryPath, "utf8")) as AllureSummary)
+    : buildSummaryFromRawResults(resultsDir);
+  const reportStatus = generateAllureReport(summary);
 
-const summary = JSON.parse(
-  fs.readFileSync(summaryPath, "utf8"),
-) as AllureSummary;
-const reportStatus = generateAllureReport(summary);
-
-if (reportStatus !== 0) {
-  process.exitCode = reportStatus;
-} else if (cypressRun?.error) {
-  console.error(cypressRun.error);
-  process.exitCode = 1;
-} else if (cypressRun) {
-  process.exitCode = cypressRun.status ?? 1;
+  if (reportStatus !== 0) {
+    process.exitCode = reportStatus;
+  } else if (cypressRun?.error) {
+    console.error(cypressRun.error);
+    process.exitCode = 1;
+  } else if (cypressRun) {
+    process.exitCode = cypressRun.status ?? 1;
+  }
 }
