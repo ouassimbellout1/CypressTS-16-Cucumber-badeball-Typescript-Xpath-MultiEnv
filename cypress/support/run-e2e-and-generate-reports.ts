@@ -20,19 +20,30 @@ const reportDir = path.join(projectDir, "allure-report");
 const allureCli = path.join(projectDir, "node_modules", "allure", "cli.js");
 const generateOnly = process.argv.includes("--generate-only");
 const openMode = process.argv.includes("--open");
-const cypressArgs = process.argv.slice(2).filter(
-  (argument: string) => argument !== "--generate-only" && argument !== "--open",
-);
+const cypressArgs = process.argv
+  .slice(2)
+  .filter(
+    (argument: string) =>
+      argument !== "--generate-only" && argument !== "--open",
+  );
 
+/** 01 Échappe les caractères réservés et retire les caractères interdits en XML. */
 const escapeXml = (value: string): string =>
   value
     .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "")
-    .replace(/[&<>"']/g, (char: string) =>
-      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;" })[
-        char
-      ] ?? char,
+    .replace(
+      /[&<>"']/g,
+      (char: string) =>
+        ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&apos;",
+        })[char] ?? char,
     );
 
+/** 02 Écrit un rapport JUnit XML à partir des résultats Allure. */
 const generateXmlReport = (tests: AllureTestResult[]): void => {
   const counts = { failures: 0, errors: 0, skipped: 0, duration: 0 };
   const cases = tests.map((test) => {
@@ -54,9 +65,11 @@ const generateXmlReport = (tests: AllureTestResult[]): void => {
           ? "Test errored"
           : `Unexpected Allure status: ${test.status}`);
     const result =
-      test.status === "skipped" ? "<skipped/>" :
-      test.status === "passed" ? "" :
-      `<${kind} message="${escapeXml(message)}" type="${kind === "failure" ? "AssertionError" : "Error"}">${escapeXml(test.statusDetails?.trace ?? message)}</${kind}>`;
+      test.status === "skipped"
+        ? "<skipped/>"
+        : test.status === "passed"
+          ? ""
+          : `<${kind} message="${escapeXml(message)}" type="${kind === "failure" ? "AssertionError" : "Error"}">${escapeXml(test.statusDetails?.trace ?? message)}</${kind}>`;
     const className =
       test.labels?.find((label) => label.name === "package")?.value ??
       test.fullName ??
@@ -65,13 +78,17 @@ const generateXmlReport = (tests: AllureTestResult[]): void => {
     return `<testcase classname="${escapeXml(className)}" name="${escapeXml(test.name ?? "Test sans nom")}" time="${duration.toFixed(3)}">${result}</testcase>`;
   });
   const attrs = `tests="${tests.length}" failures="${counts.failures}" errors="${counts.errors}" skipped="${counts.skipped}" time="${counts.duration.toFixed(3)}"`;
-  fs.writeFileSync(xmlReportPath, `<?xml version="1.0" encoding="UTF-8"?>
+  fs.writeFileSync(
+    xmlReportPath,
+    `<?xml version="1.0" encoding="UTF-8"?>
 <testsuites ${attrs}><testsuite name="Cypress E2E" ${attrs}>
 ${cases.join("\n")}
 </testsuite></testsuites>
-`);
+`,
+  );
 };
 
+/** 03 Crée un fichier explicatif lorsque cette exécution n'a aucun résultat. */
 const writeNoResultsPlaceholder = (): void => {
   fs.mkdirSync(reportDir, { recursive: true });
   fs.writeFileSync(
@@ -80,6 +97,7 @@ const writeNoResultsPlaceholder = (): void => {
   );
 };
 
+/** Génère les rapports JUnit et HTML Allure, ou un placeholder sans résultats. */
 const generateAllureReport = (tests: AllureTestResult[]): number => {
   fs.rmSync(reportDir, { recursive: true, force: true });
 
