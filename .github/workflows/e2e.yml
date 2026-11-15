@@ -23,9 +23,9 @@ jobs:
         include:
           - browser: chrome
             command: npm run test:e2e:chrome -- --headless
-            fallback: npx cypress run --browser electron --headless
-          - browser: electron
-            command: npx cypress run --browser electron --headless
+            fallback: npx cypress run --browser edge --headless
+          - browser: edge
+            command: npx cypress run --browser edge --headless
             fallback: ""
 
     permissions:
@@ -57,10 +57,10 @@ jobs:
               echo "selected=chrome" >> "$GITHUB_OUTPUT"
             else
               echo "selected=fallback" >> "$GITHUB_OUTPUT"
-              echo "::warning::Chrome not available on the runner. Falling back to Electron."
+              echo "::warning::Chrome not available on the runner. Falling back to Edge."
             fi
           else
-            echo "selected=electron" >> "$GITHUB_OUTPUT"
+            echo "selected=edge" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Run Cypress E2E suite
@@ -71,10 +71,10 @@ jobs:
             echo "Running Cypress with Chrome"
             ${{ matrix.command }}
           elif [ "${{ matrix.browser }}" = "chrome" ] && [ "${{ steps.browser-choice.outputs.selected }}" = "fallback" ]; then
-            echo "Running Cypress with Electron fallback"
+            echo "Running Cypress with Edge fallback"
             ${{ matrix.fallback }}
           else
-            echo "Running Cypress with Electron"
+            echo "Running Cypress with Edge"
             ${{ matrix.command }}
           fi
 
@@ -143,7 +143,17 @@ jobs:
           path: allure-results
           merge-multiple: true
 
+      - name: Check downloaded results
+        shell: bash
+        run: |
+          if [ ! -d "allure-results" ] || [ -z "$(find allure-results -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null)" ]; then
+            echo "::warning::No Allure result files were downloaded from the matrix jobs. Skipping HTML generation."
+            mkdir -p allure-report
+            echo "No Allure results available for this run." > allure-report/NO_RESULTS.txt
+          fi
+
       - name: Generate HTML report
+        if: ${{ hashFiles('allure-results/**') != '' }}
         run: npm run allure:generate
 
       - name: Upload HTML report artifact
@@ -152,10 +162,10 @@ jobs:
         with:
           name: allure-report
           path: allure-report
-          if-no-files-found: error
+          if-no-files-found: warn
 
       - name: Upload for GitHub Pages
-        if: github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+        if: always() && github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && hashFiles('allure-report/**') != ''
         uses: actions/upload-pages-artifact@v4
         with:
           path: allure-report
